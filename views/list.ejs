@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title> To Do List </title>
+
+    <%# CSS File Link %>
+        <link rel="stylesheet" href="CSS/style.css">
+</head>
+
+<body>
+
+    <div class="box" id="heading">
+        <h1>
+            <%=listTitle%>
+        </h1>
+    </div>
+
+    <div class="box">
+
+
+        <% newdata.forEach(function(data) { %>
+            <form action="/delete" method="post">
+                <div class="item">
+                    <input type="checkbox" name="checkbox" value="<%- data._id %>" onchange="this.form.submit()">
+                    <p> <%- data.work %></p>
+                </div>
+                <input type="hidden" name="listName" value="<%=listTitle %>">
+            </form>
+            <% }) %>
+                <form class="item" action="/" method="post">
+                    <input type="text" name="newlist" placeholder="Add new list" autocomplete="off" required>
+                    <button type="submit" name="list" value="<%=listTitle %>">+</button>
+                </form>
+    </div>
+
+</body>
+<footer>
+    <p class="copyright">&copy; 2023-2024 Marvel </p>
+</footer>
+
+</html>
+
+<!-- <% for (let i=0; i < newdata.length; i++) { %>
+            <div class="item">
+                <input type="checkbox">
+                <p> <%- newdata[i].work %></p>
+            </div>
+            <% } %> -->
