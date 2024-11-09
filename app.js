@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const date = require(__dirname + '/date');
 const _ = require('lodash');
-mongoose.connect("mongodb+srv://admin-rahul:Test123@cluster.haqzbjh.mongodb.net/todolistDB", { useNewUrlParser: true });
+mongoose.connect("mongodb+srv://todo:todo@cluster0.hwnpw.mongodb.net/", { useNewUrlParser: true });
 
 //Schema of Mongoose Database
 
