@@ -1,170 +1,128 @@
+
 const express = require('express');
-const request = require('request');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const date = require(__dirname + '/date');
 const _ = require('lodash');
-mongoose.connect("mongodb+srv://todo:todo@cluster0.hwnpw.mongodb.net/", { useNewUrlParser: true });
 
-//Schema of Mongoose Database
+const app = express();
 
-const todolistSchema = { //you can write  "new mongoose.Schema" also after = 
+app.set('view engine', 'ejs');
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static("public"));
+
+// Connect to MongoDB using environment variable
+mongoose.connect("mongodb+srv://todo:todo@cluster0.hwnpw.mongodb.net/", { 
+    useNewUrlParser: true, 
+    useUnifiedTopology: true,
+    dbName: 'todolistDB' // Specify your database name
+})
+.then(() => console.log('Connected to MongoDB'))
+.catch(err => console.log(err));
+
+// Schema Definitions
+const todolistSchema = {
     work: String,
 };
 
 const listSchema = {
     work: String,
     items: [todolistSchema]
-}
+};
 
-//Create Collection 
+// Model Definitions
 const ListItem = mongoose.model("ListItem", todolistSchema);
 const ArrayList = mongoose.model("ArrayList", listSchema);
 
-const app = express();
-app.set('view engine', 'ejs');
-app.use(bodyParser.urlencoded({ extended: true }));
-File
+// Default Items
+const item1 = new ListItem({ work: "Running" });
+const item2 = new ListItem({ work: "HomeWork" });
+const item3 = new ListItem({ work: "Walking" });
+const defaultList = [item1, item2, item3];
 
-
-
-app.get('/', function (req, res) {
-    ListItem.find().then(function (listitems) {
-        // console.log(listitems); // to Print the whole DataBase
+// Root Route
+app.get('/', async (req, res) => {
+    try {
+        const day = date();
+        const listitems = await ListItem.find();
         res.render("list", { listTitle: day, newdata: listitems });
-
-    }).catch(function (err) {
+    } catch (err) {
         console.log(err);
-    });
-    let day = date();
+        res.status(500).send("Internal Server Error");
+    }
 });
 
+// Dynamic Route
+app.get('/:field', async (req, res) => {
+    try {
+        const fieldName = _.capitalize(req.params.field);
+        let listitems = await ArrayList.findOne({ work: fieldName });
 
-const item1 = new ListItem({
-    work: "Running"
-});
-const item2 = new ListItem({
-    work: "HomeWork"
-});
-const item3 = new ListItem({
-    work: "Walking"
-});
-
-const defualtList = [item1, item2, item3];
-
-app.get('/:field', function (req, res) {
-    const fieldName =_.capitalize(req.params.field);  //_.lowerCase(req.params.field);
-
-    ArrayList.findOne({ work: fieldName }).then(function (listitems) { //to check in list item is exist or notif not then add 
         if (!listitems) {
-            console.log("Doesn't exist");
-
+            console.log("List does not exist. Creating a new one.");
             const list = new ArrayList({
                 work: fieldName,
-                items: defualtList
-            })
-            list.save();
+                items: defaultList
+            });
+            await list.save();
             res.redirect('/' + fieldName);
         } else {
             res.render('list', { listTitle: fieldName, newdata: listitems.items });
         }
-    }).catch(function (err) {
+    } catch (err) {
         console.log(err);
-    });
-});
-
-
-app.post("/", function (req, res) {
-    let newlist = req.body.newlist; //work that add by user
-    let listName = req.body.list;
-    let day = date();
-    const newItem = new ListItem({
-        work: newlist,
-    });
-    if (listName == day) {
-        newItem.save();
-        res.redirect('/');
-    } else {
-        
-        ArrayList.findOne({ work: listName }).then(function (listitems) { //to check in list item is exist or notif not then add 
-
-           listitems.items.push(newItem);
-           listitems.save(); 
-            res.redirect('/'+ listName );
-
-        }).catch(function (err) {
-            console.log(err);
-        });
+        res.status(500).send("Internal Server Error");
     }
 });
 
+// Add New Item
+app.post("/", async (req, res) => {
+    const newlist = req.body.newlist; // Work added by user
+    const listName = req.body.list;
+    const day = date();
+    const newItem = new ListItem({ work: newlist });
 
+    try {
+        if (listName === day) {
+            await newItem.save();
+            res.redirect('/');
+        } else {
+            const listitems = await ArrayList.findOne({ work: listName });
+            listitems.items.push(newItem);
+            await listitems.save();
+            res.redirect('/' + listName);
+        }
+    } catch (err) {
+        console.log(err);
+        res.status(500).send("Internal Server Error");
+    }
+});
 
-app.post("/delete", function (req, res) {
-    const checkedItemId =req.body.checkbox;
+// Delete Item
+app.post("/delete", async (req, res) => {
+    const checkedItemId = req.body.checkbox;
     const listname = req.body.listName;
-    console.log(req.body);
-    let day = date();
-    if (listname == day) {
-        ListItem.deleteOne({ _id: checkedItemId}).then(function (listitems) {
-            console.log(" Deleted successfully");
+    const day = date();
+
+    try {
+        if (listname === day) {
+            await ListItem.deleteOne({ _id: checkedItemId });
             res.redirect("/");
-        }).catch(function (err) {
-            console.log(err);
-        });
-    }else{
-        ArrayList.findOneAndUpdate({ work: listname},{$pull:{items:{_id : checkedItemId}}}).then(function (listItems){
-            res.redirect('/'+listname);
-        }).catch(function (err) {
-            console.log(err);
-        });
+        } else {
+            await ArrayList.findOneAndUpdate(
+                { work: listname },
+                { $pull: { items: { _id: checkedItemId } } }
+            );
+            res.redirect('/' + listname);
+        }
+    } catch (err) {
+        console.log(err);
+        res.status(500).send("Internal Server Error");
     }
-
-    
 });
 
-app.use(express.static("public"));
-
-let port = process.env.PORT;
-if (port == null || port == "") {
-  port = 8000;
-}
-
-
+// Start Server
+const port = process.env.PORT || 8000;
 app.listen(port, function () {
-    console.log('listening on port ');
+    console.log('Server is running on port ' + port);
 });
-
-
-
-
-//Create data for list item
-
-/*
-const item1 = new ListItem({
-    work : "Running"
-});
-const item2 = new ListItem({
-    work : "HomeWork"
-});
-const item3 = new ListItem({
-    work : "Walking"
-});
-*/
-
-// ListItem.insertMany([item1, item2, item3]).then(function(listItems) {
-//     console.log("ListItem add Successfully");
-// }).catch(function(err) {
-//     console.log(err);
-// });
-
-
-// ListItem.find().then(function (listitems){
-//     // console.log(fruits); // to Print the whole DataBase
-//     mongoose.connection.close();
-//     listitems.forEach(function(listitems){
-//        items = listitems.work; //Print the All Fruits Name
-//     })
-// }).catch(function (err) {
-//     console.log(err);
-// });
